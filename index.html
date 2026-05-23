@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Clash: Fully Customizable Edition</title>
+    <style>
+        /* CSS VARIABLES FOR DYNAMIC COLORS */
+        :root {
+            --c0: #D32F2F;
+            --c1: #1976D2;
+            --c2: #388E3C;
+            --c3: #F57C00;
+            --cWild: #212121;
+            --cHidden: #455A64;
+        }
+
+        /* CSS Reset & Background */
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; color: white; }
+        #bg-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; transition: background 0.5s ease; }
+        .theme-green { background-color: #1b5e20; background-image: radial-gradient(circle at center, #2e7d32 0%, #003300 100%); }
+        .theme-blue { background-color: #0d47a1; background-image: radial-gradient(circle at center, #1565c0 0%, #002171 100%); }
+        .theme-dark { background-color: #212121; background-image: radial-gradient(circle at center, #424242 0%, #000000 100%); }
+
+        /* Core Layout */
+        .app-container { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .screen { display: none; width: 100%; max-width: 950px; text-align: center; }
+        .active-screen { display: block; animation: fadeIn 0.3s ease-in; }
+
+        /* Board & Menus */
+        .board { 
+            background-color: #3e2723;
+            background-image: linear-gradient(45deg, #4e342e 25%, #3e2723 25%, #3e2723 50%, #4e342e 50%, #4e342e 75%, #3e2723 75%, #3e2723 100%);
+            background-size: 40px 40px; padding: 25px; border: 12px solid #1a100d; border-radius: 20px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.8); 
+        }
+        
+        h1 { font-size: 4rem; margin-bottom: 5px; color: #eceff1; text-shadow: 2px 2px 0px #212121, 5px 5px 0px #000; text-transform: uppercase; font-style: italic;}
+        .menu-box { background-color: rgba(20, 20, 20, 0.95); padding: 30px; border-radius: 10px; margin-top: 10px; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 10px 20px rgba(0,0,0,0.8); display: inline-block; width: 100%; max-width: 550px;}
+        .menu-btn { display: block; width: 80%; max-width: 300px; margin: 15px auto; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px; background-color: #2f3640; color: white; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.5); border: 2px solid #718093; text-transform: uppercase;}
+        .menu-btn:hover { background-color: #718093; transform: scale(1.05); }
+        
+        /* Form Inputs */
+        input[type="text"], select { padding: 10px; font-size: 16px; border-radius: 5px; margin: 5px auto; width: 90%; max-width: 350px; background-color: #dcdde1; color: #2f3640; border: none; font-weight:bold; display: block; box-sizing: border-box;}
+        .mod-box { background-color: rgba(47, 54, 64, 0.9); border: 2px solid #dcdde1; text-align: left; color: white; margin: 15px auto; padding:15px; border-radius:5px;}
+        .mod-box label { display: block; margin: 10px 0; cursor: pointer; font-weight: bold;}
+        .mod-box input[type="checkbox"] { transform: scale(1.5); margin-right: 10px;}
+        
+        .flex-row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;}
+        .flex-row div { flex: 1; min-width: 45%; }
+        .lobby-player { font-size: 20px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;}
+
+        /* Game Elements */
+        .opponents-container { display: flex; justify-content: space-around; margin-bottom: 20px; padding: 15px; background-color: rgba(0,0,0,0.6); border-radius: 12px; border: 2px solid rgba(255,255,255,0.1); }
+        .opponent { padding: 10px; border-radius: 8px; width: 25%; transition: all 0.3s; background-color: rgba(255,255,255,0.05); }
+        .active-turn { background-color: #dcdde1; color: #2f3640; transform: scale(1.05); border: none; animation: pulseTurn 1.2s infinite alternate; }
+
+        .card-area { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; padding: 15px; min-height: 120px; position: relative; }
+        
+        /* CARD BASE DESIGN */
+        .card { width: 80px; height: 120px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 4px solid white; box-shadow: 2px 4px 10px rgba(0,0,0,0.8); background-color: white; position: relative; flex-shrink: 0;}
+        .card-inner { width: 90%; height: 92%; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .card-diamond { width: 60%; height: 60%; background-color: white; transform: rotate(45deg); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 8px rgba(0,0,0,0.4); }
+        .card-text { font-size: 26px; font-weight: 900; transform: rotate(-45deg); text-align: center; line-height: 1; }
+        .player-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .player-card:hover { transform: translateY(-20px) scale(1.1); box-shadow: 0 15px 25px rgba(0,0,0,0.8); z-index: 10; }
+
+        /* Dynamic Classes using CSS Variables */
+        .color-0 .card-inner { background-color: var(--c0); } .color-0 .card-text { color: var(--c0); }
+        .color-1 .card-inner { background-color: var(--c1); } .color-1 .card-text { color: var(--c1); }
+        .color-2 .card-inner { background-color: var(--c2); } .color-2 .card-text { color: var(--c2); }
+        .color-3 .card-inner { background-color: var(--c3); } .color-3 .card-text { color: var(--c3); }
+        .color-wild .card-inner { background-color: var(--cWild); } .color-wild .card-text { color: var(--cWild); }
+        .hidden .card-inner { background-color: var(--cHidden); } .hidden .card-text { color: var(--cHidden); }
+
+        .center-play-area { background-color: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin: 20px 0; display: flex; flex-direction: column; align-items: center; box-shadow: inset 0 10px 20px rgba(0,0,0,0.6);}
+        #status { font-size: 24px; font-weight: bold; margin: 15px 0; color: #eceff1; min-height: 28px; text-shadow: 2px 2px 4px black;}
+        #direction-indicator { font-size: 18px; font-weight: bold; color: white; margin-bottom: 10px; background-color: rgba(0,0,0,0.7); padding: 8px 20px; border-radius: 20px; border: 1px solid #718093;}
+
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .color-btn { width: 90px; height: 90px; margin: 15px; border-radius: 15px; border: 5px solid white; cursor: pointer; display: inline-block; transition: 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.8); transform: rotate(45deg);}
+        .color-btn:hover { transform: rotate(45deg) scale(1.2); }
+        
+        .penalty-btn { background-color: #c23616 !important; border-color: #e84118 !important;} 
+        button:disabled { background-color: #2f3640 !important; color: #718093; cursor: not-allowed; border-color: #353b48 !important; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes dealIn { from { transform: translateY(-80px) scale(0.5); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+        .anim-deal { animation: dealIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes slamCard { 0% { transform: scale(1.6) translateY(-40px); opacity: 0; box-shadow: 0 30px 40px rgba(0,0,0,0.6); } 100% { transform: scale(1) translateY(0); opacity: 1; box-shadow: 2px 4px 8px rgba(0,0,0,0.5); } }
+        .anim-slam { animation: slamCard 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        @keyframes pulseTurn { 0% { box-shadow: 0 0 10px white, inset 0 0 5px white; } 100% { box-shadow: 0 0 30px white, inset 0 0 15px white; } }
+    </style>
+</head>
+<body>
+    <div id="bg-layer" class="theme-green"></div>
+
+    <div class="app-container">
+        <!-- MAIN MENU -->
+        <div id="main-menu" class="screen active-screen">
+            <h1 id="main-title-display">SOLO</h1>
+            <h2 style="color:#dcdde1; margin-top:0;">Card Clash</h2>
+            <div class="menu-box">
+                <button type="button" class="menu-btn" onclick="openHostLobby()" style="background-color: #4CAF50; border-color:#388E3C;">👑 Host Room</button>
+                <button type="button" class="menu-btn" onclick="showScreen('join-screen')" style="background-color: #1976D2; border-color:#0D47A1;">🔑 Join Room</button>
+                <button type="button" class="menu-btn" onclick="startQuickBotGame()" style="background-color: #F57C00; border-color:#E65100;">🤖 Quick vs Bots</button>
+                <button type="button" class="menu-btn" onclick="showScreen('settings-screen')">⚙️ Settings & Customization</button>
+            </div>
+        </div>
+
+        <!-- SETTINGS SCREEN -->
+        <div id="settings-screen" class="screen">
+            <h1 style="font-size:2.5rem;">⚙️ Customizer</h1>
+            <div class="menu-box" style="padding:20px; max-height: 70vh; overflow-y: auto;">
+                
+                <h3 style="margin-top:0;">Game Name:</h3>
+                <input type="text" id="set-game-name" value="SOLO" maxlength="8">
+
+                <h3>Custom Card Names:</h3>
+                <div class="flex-row">
+                    <div><input type="text" id="set-name-skip" value="Block" placeholder="Skip"></div>
+                    <div><input type="text" id="set-name-rev" value="Reflect" placeholder="Reverse"></div>
+                    <div><input type="text" id="set-name-d2" value="Pull 2" placeholder="+2"></div>
+                    <div><input type="text" id="set-name-wild" value="Shift" placeholder="Wild"></div>
+                </div>
+
+                <h3>Card Colors:</h3>
+                <select id="set-palette" onchange="toggleColorPickers()">
+                    <option value="solo" selected>SOLO (Crimson, Azure, Emerald, Amber)</option>
+                    <option value="classic">Classic (Red, Blue, Green, Yellow)</option>
+                    <option value="neon">Neon (Pink, Cyan, Lime, Purple)</option>
+                    <option value="custom">Custom (Pick your own HEX!)</option>
+                </select>
+                <div id="custom-color-pickers" style="display:none; justify-content: space-around; margin:10px 0;">
+                    <input type="color" id="c-pick-0" value="#D32F2F" style="width:50px; height:50px; padding:0; cursor:pointer;">
+                    <input type="color" id="c-pick-1" value="#1976D2" style="width:50px; height:50px; padding:0; cursor:pointer;">
+                    <input type="color" id="c-pick-2" value="#388E3C" style="width:50px; height:50px; padding:0; cursor:pointer;">
+                    <input type="color" id="c-pick-3" value="#F57C00" style="width:50px; height:50px; padding:0; cursor:pointer;">
+                </div>
+
+                <h3>Rules & Speed:</h3>
+                <div class="flex-row">
+                    <div><select id="set-cards">
+                        <option value="5">5 Cards (Quick)</option>
+                        <option value="7" selected>7 Cards (Standard)</option>
+                        <option value="10">10 Cards (Marathon)</option>
+                    </select></div>
+                    <div><select id="set-speed">
+                        <option value="600">Bot Speed: Fast</option>
+                        <option value="1200" selected>Bot Speed: Normal</option>
+                        <option value="2000">Bot Speed: Slow</option>
+                    </select></div>
+                </div>
+
+                <h3>Table Theme:</h3>
+                <select id="set-theme">
+                    <option value="theme-green" selected>Casino Green</option>
+                    <option value="theme-blue">Deep Blue</option>
+                    <option value="theme-dark">Midnight</option>
+                </select>
+
+                <div class="mod-box">
+                    <label><input type="checkbox" id="set-sfx" checked> Enable Sound Effects</label>
+                </div>
+                
+                <button type="button" class="menu-btn" onclick="applySettings()" style="background-color: #4CAF50;">Save & Return</button>
+            </div>
+        </div>
+
+        <!-- JOIN SCREEN -->
+        <div id="join-screen" class="screen">
+            <h1>Join Room</h1>
+            <div class="menu-box">
+                <h3>Enter 4-Digit Code:</h3>
+                <input type="text" id="room-code-input" maxlength="4" placeholder="e.g. A7X9">
+                <button type="button" class="menu-btn" onclick="attemptJoin()" style="background-color: #1976D2;">Connect</button>
+                <button type="button" class="menu-btn back-btn" onclick="showScreen('main-menu')">Back</button>
+                <p id="join-error" style="color:#D32F2F; font-weight:bold; display:none;">Invalid Code! Try again.</p>
+            </div>
+        </div>
+
+        <!-- HOST LOBBY SCREEN -->
+        <div id="lobby-screen" class="screen">
+            <h1 style="color: #4CAF50;">Room: <span id="room-code-display" style="letter-spacing: 5px; color:white;"></span></h1>
+            <div class="menu-box">
+                <h3>Players: <span id="player-count-display">1</span>/4</h3>
+                <div class="lobby-list" id="lobby-list" style="background:rgba(0,0,0,0.8); border:none;"></div>
+
+                <div id="host-controls">
+                    <div style="display:flex; justify-content:center; gap:10px;">
+                        <button type="button" class="menu-btn" onclick="addPlayerToLobby(false)" style="font-size:14px; width:45%;">+ Friend</button>
+                        <button type="button" class="menu-btn" onclick="addPlayerToLobby(true)" style="font-size:14px; width:45%;">+ Bot</button>
+                    </div>
+                    
+                    <h3 style="margin-top:20px;">Game Rules:</h3>
+                    <select id="lobby-deck-type">
+                        <option value="classic">Standard Deck</option>
+                        <option value="merciless">Chaos Deck (Wild +6, +10)</option>
+                    </select>
+                    <div class="mod-box">
+                        <label><input type="checkbox" id="lobby-mod-stacking"> Enable Stacking (Pull on Pull)</label>
+                        <label><input type="checkbox" id="lobby-mod-draw-until"> Pull Until You Play</label>
+                    </div>
+                    <button type="button" class="menu-btn" onclick="startGameFromLobby()" style="background-color: #F57C00; border-color:#E65100; margin-top:25px; font-size: 22px;">Start Clash</button>
+                </div>
+                <button type="button" class="menu-btn back-btn" onclick="showScreen('main-menu')">Leave</button>
+            </div>
+        </div>
+
+        <!-- GAME BOARD -->
+        <div id="game-board" class="screen board">
+            <div class="opponents-container" id="opponents-container"></div>
+            <div class="center-play-area">
+                <div id="direction-indicator"></div>
+                
+                <div style="display:flex; gap: 30px; align-items: center; justify-content: center; width:100%;">
+                    <div id="draw-pile-visual" class="card hidden" style="box-shadow: -5px 5px 0 #222, -10px 10px 0 #111; cursor:pointer;" onclick="humanAction()">
+                        <div class="card-inner"><div class="card-diamond"><div class="card-text" id="draw-pile-text" style="color:#212121; font-size:18px;">SOLO</div></div></div>
+                    </div>
+                    <div id="discard-pile" style="position:relative; width:80px; height:120px;"></div>
+                </div>
+
+                <div id="status">Dealing...</div>
+            </div>
+            <div class="player-area" id="human-area">
+                <h3 id="bottom-player-name" style="margin: 0 0 10px 0; color: #eceff1;">Your Hand</h3>
+                <div class="card-area" id="player-hand"></div>
+                <button type="button" class="menu-btn" id="draw-btn" onclick="humanAction()" style="width:250px; background-color:#1976D2;">Pull Card</button>
+                <button type="button" class="menu-btn" id="restart-btn" onclick="exitToMainMenu()" style="display:none; background-color: #4CAF50; width:200px;">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- MODALS -->
+        <div id="color-picker" class="modal">
+            <h1 style="color:white; text-shadow: 2px 2px 5px black;">Choose a Color</h1>
+            <div id="color-picker-btns" style="display:flex; gap: 20px; flex-wrap:wrap; justify-content:center; max-width:400px; padding:20px;">
+                <!-- Generated dynamically via JS -->
+            </div>
+        </div>
+
+        <div id="pass-screen" class="modal">
+            <h1 id="pass-title" style="color:white; font-size: 4rem;">Turn Ended</h1>
+            <h2 id="pass-desc" style="color: #eceff1; font-size: 2rem;">Pass device to Player</h2>
+            <button type="button" class="menu-btn" onclick="acceptPass()" style="font-size: 24px; padding: 20px; background-color:#F57C00;">Ready!</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SAFE AUDIO SYNTHESIZER ---
+        let audioCtx = null; let audioAllowed = false;
+        function initAudio() {
+            if (!appSettings.sfx) return;
+            if (!audioCtx) {
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+                catch(e) { return; }
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            audioAllowed = true;
+        }
+
+        document.addEventListener('click', (e) => {
+            initAudio();
+            if(e.target.tagName === 'BUTTON' || e.target.classList.contains('color-btn') || e.target.closest('.card')) {
+                playSound('click');
+            }
+        });
+
+        function playSound(type) {
+            if (!appSettings.sfx || !audioAllowed || !audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            try {
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                
+                if (type === 'click') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(800, now);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'play') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'draw') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(600, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'solo') {
+                    osc.type = 'square'; osc.frequency.setValueAtTime(880, now); 
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                    const osc2 = audioCtx.createOscillator(); const gain2 = audioCtx.createGain();
+                    osc2.connect(gain2); gain2.connect(audioCtx.destination);
+                    osc2.type = 'square'; osc2.frequency.setValueAtTime(1108.73, now + 0.15);
+                    gain2.gain.setValueAtTime(0.1, now + 0.15); gain2.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                    osc2.start(now + 0.15); osc2.stop(now + 0.4);
+                }
+            } catch(e) {}
+        }
+
+        // --- 50 POPULAR BOT NAMES ---
+        const botNamesList = ["Liam", "Noah", "Oliver", "Elijah", "James", "William", "Benjamin", "Lucas", "Henry", "Theodore", "Emma", "Olivia", "Ava", "Isabella", "Sophia", "Mia", "Charlotte", "Amelia", "Harper", "Evelyn", "Jack", "Alexander", "Levi", "Mateo", "Michael", "Asher", "Daniel", "Samuel", "Logan", "David", "Abigail", "Emily", "Elizabeth", "Mila", "Ella", "Avery", "Sofia", "Camila", "Aria", "Scarlett", "Wyatt", "Carter", "Jayden", "John", "Owen", "Dylan", "Luke", "Gabriel", "Anthony", "Isaac"];
+        function getBotName() {
+            let available = botNamesList.filter(n => !lobbyPlayers.some(p => p.name === n));
+            if(available.length === 0) available = botNamesList;
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        // --- CORE SETTINGS & VARIABLES ---
+        let appSettings = { 
+            startCards: 7, botSpeed: 1200, theme: 'theme-green', sfx: true, 
+            gameName: 'SOLO',
+            palette: ['#D32F2F', '#1976D2', '#388E3C', '#F57C00'], 
+            colorNames: ['Crimson', 'Azure', 'Emerald', 'Amber'],
+            names: { skip: 'Block', reverse: 'Reflect', draw2: 'Pull 2', wild: 'Shift' }
+        };
+
+        const valuesBase = ['0','1','2','3','4','5','6','7','8','9','skip','reverse','draw2'];
+
+        let deck = [], discardPile = [], players = [];
+        let currentPlayerIndex = 0, playDirection = 1, isGameOver = false, activeColorIdx = 0; 
+        let currentViewerId = 0, inputLocked = false; 
+        let pendingDrawAmount = 0, activeRequiredStackValue = null;
+        let mods = { deck: 'classic', stacking: false, drawUntil: false }; 
+        let lobbyPlayers = []; let botTimer = null;
+
+        // --- UI MENUS & CUSTOMIZATION ---
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+            document.getElementById(screenId).classList.add('active-screen');
+            let err = document.getElementById('join-error'); if(err) err.style.display = 'none';
+        }
+
+        function toggleColorPickers() {
+            document.getElementById('custom-color-pickers').style.display = document.getElementById('set-palette').value === 'custom' ? 'flex' : 'none';
+        }
+
+        function setPalette(hexArr, namesArr) {
+            appSettings.palette = hexArr;
+            appSettings.colorNames = namesArr;
+            for(let i=0; i<4; i++) {
+                document.documentElement.style.setProperty(`--c${i}`, hexArr[i]);
+            }
+        }
+
+        function applySettings() {
+            // Apply Rules & Speed
+            appSettings.startCards = parseInt(document.getElementById('set-cards').value);
+            appSettings.botSpeed = parseInt(document.getElementById('set-speed').value);
+            appSettings.sfx = document.getElementById('set-sfx').checked;
+            
+            // Apply Theme
+            appSettings.theme = document.getElementById('set-theme').value;
+            document.getElementById('bg-layer').className = appSettings.theme;
+
+            // Apply Names
+            appSettings.gameName = document.getElementById('set-game-name').value || "SOLO";
+            appSettings.names.skip = document.getElementById('set-name-skip').value || "Block";
+            appSettings.names.reverse = document.getElementById('set-name-rev').value || "Reflect";
+            appSettings.names.draw2 = document.getElementById('set-name-d2').value || "Pull 2";
+            appSettings.names.wild = document.getElementById('set-name-wild').value || "Shift";
+
+            document.getElementById('main-title-display').innerText = appSettings.gameName;
+            document.getElementById('draw-pile-text').innerText = appSettings.gameName;
+
+            // Apply Colors to CSS Variables
+            const pSet = document.getElementById('set-palette').value;
+            if (pSet === 'classic') setPalette(['#c23616', '#0097e6', '#4cd137', '#fbc531'], ['Red','Blue','Green','Yellow']);
+            else if (pSet === 'neon') setPalette(['#ff00ff', '#00ffff', '#39ff14', '#9d00ff'], ['Pink','Cyan','Lime','Purple']);
+            else if (pSet === 'custom') {
+                setPalette([
+                    document.getElementById('c-pick-0').value, document.getElementById('c-pick-1').value, 
+                    document.getElementById('c-pick-2').value, document.getElementById('c-pick-3').value
+                ], ['Color 1','Color 2','Color 3','Color 4']);
+            } else setPalette(['#D32F2F', '#1976D2', '#388E3C', '#F57C00'], ['Crimson','Azure','Emerald','Amber']); // Solo
+
+            showScreen('main-menu');
+        }
+
+        function exitToMainMenu() {
+            isGameOver = true; inputLocked = false; clearTimeout(botTimer); 
+            document.getElementById('restart-btn').style.display = 'none';
+            document.getElementById('draw-btn').style.display = 'inline-block';
+            showScreen('main-menu');
+        }
+
+        // --- LOBBY SYSTEM ---
+        function generateCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let result = '';
+            for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length)); return result;
+        }
+
+        function openHostLobby() {
+            document.getElementById('room-code-display').innerText = generateCode();
+            document.getElementById('host-controls').style.display = 'block';
+            lobbyPlayers = [{ name: 'You (Host)', isBot: false }];
+            updateLobbyUI(); showScreen('lobby-screen');
+        }
+
+        function attemptJoin() {
+            const input = document.getElementById('room-code-input').value.toUpperCase();
+            if(input.length === 4) {
+                document.getElementById('room-code-display').innerText = input;
+                document.getElementById('host-controls').style.display = 'none'; 
+                lobbyPlayers = [{ name: 'Host', isBot: false }, { name: 'You (Guest)', isBot: false }, { name: getBotName(), isBot: true }, { name: getBotName(), isBot: true }];
+                updateLobbyUI(); showScreen('lobby-screen');
+                setTimeout(() => { if(document.getElementById('lobby-screen').classList.contains('active-screen')) startGameFromLobby(); }, 3000);
+            } else document.getElementById('join-error').style.display = 'block';
+        }
+
+        function addPlayerToLobby(isBot) {
+            if(lobbyPlayers.length >= 4) return;
+            const pName = isBot ? getBotName() : `Friend ${lobbyPlayers.filter(p=>!p.isBot).length}`;
+            lobbyPlayers.push({ name: pName, isBot: isBot }); updateLobbyUI();
+        }
+
+        function updateLobbyUI() {
+            const list = document.getElementById('lobby-list'); list.innerHTML = '';
+            document.getElementById('player-count-display').innerText = lobbyPlayers.length;
+            lobbyPlayers.forEach((p, idx) => {
+                let icon = p.isBot ? '🤖' : '👤';
+                list.innerHTML += `<div class="lobby-player"><span>${icon} ${p.name}</span> <span style="color:#718093;">${idx===0 ? '(Host)' : ''}</span></div>`;
+            });
+        }
+
+        function startQuickBotGame() {
+            lobbyPlayers = [{ name: 'You', isBot: false }];
+            for(let i=0; i<3; i++) lobbyPlayers.push({ name: getBotName(), isBot: true });
+            mods.deck = 'classic'; mods.stacking = false; mods.drawUntil = false;
+            startGameFromLobby(true);
+        }
+
+        // --- GAME INITIALIZATION ---
+        function startGameFromLobby(isQuickPlay = false) {
+            if(lobbyPlayers.length < 2) { alert("Need at least 2 players!"); return; }
+            if(!isQuickPlay) {
+                mods.deck = document.getElementById('lobby-deck-type').value;
+                mods.stacking = document.getElementById('lobby-mod-stacking').checked;
+                mods.drawUntil = document.getElementById('lobby-mod-draw-until').checked;
+            }
+
+            // Dynamically Inject User's Colors into Picker
+            const picker = document.getElementById('color-picker-btns'); picker.innerHTML = '';
+            for(let i=0; i<4; i++) {
+                picker.innerHTML += `<div class="color-btn" style="background-color:var(--c${i})" onclick="setColor(${i})"></div>`;
+            }
+
+            deck = []; discardPile = []; players = [];
+            playDirection = 1; currentPlayerIndex = 0; isGameOver = false; inputLocked = true;
+            pendingDrawAmount = 0; activeRequiredStackValue = null;
+
+            lobbyPlayers.forEach((p, idx) => players.push({ id: idx, name: p.name, isBot: p.isBot, hand: [] }));
+
+            for (let c = 0; c < 4; c++) { for (let v of valuesBase) { deck.push({ colorIdx: c, value: v }); if(v!=='0') deck.push({ colorIdx: c, value: v }); } }
+            for (let i = 0; i < 4; i++) { deck.push({ colorIdx: 'wild', value: 'wild' }); deck.push({ colorIdx: 'wild', value: 'wild4' }); }
+            if (mods.deck === 'merciless') {
+                for (let i = 0; i < 4; i++) deck.push({ colorIdx: 'wild', value: 'wild6' });
+                for (let i = 0; i < 2; i++) deck.push({ colorIdx: 'wild', value: 'wild10' });
+            }
+            deck.sort(() => Math.random() - 0.5);
+            
+            for (let i = 0; i < appSettings.startCards; i++) players.forEach(p => p.hand.push(deck.pop()));
+
+            let safeIdx = deck.findIndex(c => c.colorIdx !== 'wild' && !isNaN(c.value));
+            if(safeIdx === -1) safeIdx = 0; 
+            let firstCard = deck.splice(safeIdx, 1)[0];
+            discardPile.push(firstCard); activeColorIdx = firstCard.colorIdx;
+
+            showScreen('game-board');
+            document.getElementById('draw-btn').style.display = 'inline-block';
+            document.getElementById('restart-btn').style.display = 'none';
+            
+            let firstHuman = players.findIndex(p => !p.isBot);
+            currentViewerId = firstHuman !== -1 ? firstHuman : 0; 
+            
+            updateUI(true); setTimeout(() => { inputLocked = false; processTurn(); }, 600);
+        }
+
+        // --- GRAPHICS ---
+        function createCardHTML(card, isHidden = false, onClick = null, id = '', animClass = '') {
+            const el = document.createElement('div'); if(id) el.id = id;
+            
+            let val = card.value || appSettings.gameName; 
+            
+            // Custom Name Translation
+            if (val === 'skip') val = appSettings.names.skip;
+            else if (val === 'reverse') val = appSettings.names.reverse;
+            else if (val === 'draw2') val = appSettings.names.draw2;
+            else if (val === 'wild') val = appSettings.names.wild;
+            else if (val === 'wild4') val = '+4';
+            else if (val === 'wild6') val = '+6';
+            else if (val === 'wild10') val = '+10';
+
+            let displayVal = isHidden ? appSettings.gameName : val;
+            let colorClass = isHidden ? 'hidden' : `color-${card.colorIdx}`;
+            
+            el.className = `card ${colorClass} ${onClick ? 'player-card' : ''} ${animClass}`;
+            let fSize = displayVal.length > 3 ? '14px' : (displayVal.length > 2 ? '18px' : '28px');
+            el.innerHTML = `<div class="card-inner"><div class="card-diamond"><div class="card-text" style="font-size:${fSize}">${displayVal}</div></div></div>`;
+            if (onClick) el.onclick = onClick;
+            return el;
+        }
+
+        function animateCard(cardObj, startRect, endRect, callback) {
+            try {
+                if(!startRect || !endRect || startRect.width === 0) { if(callback) callback(); return; }
+                const clone = createCardHTML(cardObj, true); 
+                clone.style.position = 'fixed'; clone.style.left = startRect.left + 'px'; clone.style.top = startRect.top + 'px';
+                clone.style.width = startRect.width + 'px'; clone.style.height = startRect.height + 'px'; clone.style.margin = '0'; clone.style.zIndex = '9999'; clone.style.pointerEvents = 'none'; clone.style.transition = 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+                document.body.appendChild(clone); clone.getBoundingClientRect(); 
+                clone.style.left = endRect.left + 'px'; clone.style.top = endRect.top + 'px'; clone.style.transform = `rotate(${Math.random()*20-10}deg) scale(1.1)`;
+                setTimeout(() => { if(document.body.contains(clone)) clone.remove(); if(callback) callback(); }, 300);
+            } catch (e) { if(callback) callback(); }
+        }
+
+        function updateUI(isInitialDeal = false, hideDiscardTop = false, hideHandIdx = -1) {
+            if(isGameOver) return;
+            const oppContainer = document.getElementById('opponents-container'); oppContainer.innerHTML = '';
+            
+            players.forEach((opp, i) => {
+                if(i === currentViewerId) return;
+                const div = document.createElement('div'); div.id = `opponent-${i}`; div.className = `opponent ${currentPlayerIndex === i ? 'active-turn' : ''}`;
+                div.innerHTML = `<strong style="font-size:18px;">${opp.isBot ? '🤖' : '👤'} ${opp.name}</strong><br><br>`;
+                div.appendChild(createCardHTML({colorIdx:'hidden', value:''}, true, null, '', isInitialDeal ? 'anim-deal' : ''));
+                div.innerHTML += `<br><span style="font-weight:bold; margin-top:10px; display:block;">${opp.hand.length} Cards</span>`; oppContainer.appendChild(div);
+            });
+
+            document.getElementById('bottom-player-name').innerText = players[currentViewerId].name + "'s Hand";
+            const drawBtn = document.getElementById('draw-btn');
+            
+            if(currentPlayerIndex === currentViewerId) {
+                document.getElementById('human-area').classList.add('active-turn'); drawBtn.disabled = inputLocked; 
+                drawBtn.innerText = pendingDrawAmount > 0 ? `Take Penalty (${pendingDrawAmount})` : (mods.drawUntil ? `Pull Until Match` : `Pull Card`);
+                pendingDrawAmount > 0 ? drawBtn.classList.add('penalty-btn') : drawBtn.classList.remove('penalty-btn');
+            } else {
+                document.getElementById('human-area').classList.remove('active-turn'); drawBtn.disabled = true; drawBtn.innerText = `Waiting...`;
+            }
+
+            const handDiv = document.getElementById('player-hand'); handDiv.innerHTML = '';
+            players[currentViewerId].hand.forEach((card, index) => {
+                let onClick = (currentPlayerIndex === currentViewerId && !inputLocked) ? () => humanPlay(index) : null;
+                const cardEl = createCardHTML(card, false, onClick, `hand-card-${index}`, isInitialDeal ? 'anim-deal' : '');
+                if(index === hideHandIdx) cardEl.style.visibility = 'hidden'; handDiv.appendChild(cardEl);
+            });
+
+            const discardDiv = document.getElementById('discard-pile'); discardDiv.innerHTML = '';
+            const topCardEl = createCardHTML(discardPile[discardPile.length - 1], false, null, 'discard-top');
+            if(hideDiscardTop) topCardEl.style.visibility = 'hidden'; discardDiv.appendChild(topCardEl);
+
+            let dirText = playDirection === 1 ? '↻ Clockwise' : '↺ Counter-Clockwise';
+            let colorCircle = `<span style="display:inline-block; width:16px; height:16px; border-radius:50%; background-color:var(--c${activeColorIdx}); border:2px solid white; vertical-align:middle;"></span>`;
+            document.getElementById('direction-indicator').innerHTML = `${dirText} &nbsp;|&nbsp; Color: ${colorCircle} ${appSettings.colorNames[activeColorIdx]}`;
+            if(pendingDrawAmount > 0) document.getElementById('direction-indicator').innerHTML += `<br><span style="color:#D32F2F;">⚠️ STACKING: Play ${activeRequiredStackValue.replace('wild','+')} or Pull ${pendingDrawAmount}! ⚠️</span>`;
+        }
+
+        function setStatus(msg) { document.getElementById('status').innerText = msg; }
+
+        // --- LOGIC ---
+        function drawFromDeck() {
+            if (deck.length === 0) {
+                if (discardPile.length <= 1) return null; 
+                const top = discardPile.pop();
+                deck = discardPile.map(c => { if (c.value.includes('wild')) return { colorIdx: 'wild', value: c.value }; return c; }).sort(() => Math.random() - 0.5);
+                discardPile = [top];
+            } return deck.pop() || null; 
+        }
+
+        function getNextPlayerIndex() { return (currentPlayerIndex + playDirection + players.length) % players.length; }
+        function advanceTurn(skipNext = false) { currentPlayerIndex = getNextPlayerIndex(); if (skipNext) currentPlayerIndex = getNextPlayerIndex(); }
+
+        function isValidPlay(card) {
+            if(pendingDrawAmount > 0) return card.value === activeRequiredStackValue;
+            const top = discardPile[discardPile.length - 1]; if (card.colorIdx === 'wild') return true;
+            return card.colorIdx === activeColorIdx || card.value === top.value;
+        }
+
+        function applyCardEffect(card) {
+            let skip = false; activeColorIdx = card.colorIdx;
+            if (card.value === 'reverse') { playDirection *= -1; if (players.length === 2) skip = true; setStatus(`${appSettings.names.reverse}d!`); }
+            else if (card.value === 'skip') { skip = true; setStatus(`${appSettings.names.skip}ed!`); }
+            else if (card.value === 'draw2' || card.value.includes('wild4') || card.value.includes('wild6') || card.value.includes('wild10')) {
+                let amount = 2;
+                if(card.value.includes('4')) amount = 4;
+                if(card.value.includes('6')) amount = 6;
+                if(card.value.includes('10')) amount = 10;
+
+                if(mods.stacking) { pendingDrawAmount += amount; activeRequiredStackValue = card.value; skip = false; } 
+                else { for(let i=0; i<amount; i++) { let c = drawFromDeck(); if(c) players[getNextPlayerIndex()].hand.push(c); } skip = true; setStatus(`Next player pulls ${amount}!`);}
+            } return skip;
+        }
+
+        function processTurn() {
+            let winner = players.find(p => p.hand.length === 0);
+            if (winner) { 
+                isGameOver = true; inputLocked = true; playSound('win'); setStatus(`🎉 ${winner.name.toUpperCase()} WINS! 🎉`); 
+                document.getElementById('draw-btn').style.display = 'none'; document.getElementById('restart-btn').style.display = 'inline-block'; return; 
+            }
+
+            const activePlayer = players[currentPlayerIndex];
+            if(!activePlayer.isBot && currentViewerId !== currentPlayerIndex) {
+                inputLocked = true; document.getElementById('pass-desc').innerText = `Pass device to ${activePlayer.name}`; document.getElementById('pass-screen').style.display = 'flex'; return; 
+            }
+
+            if (activePlayer.isBot) {
+                inputLocked = true; setStatus(`${activePlayer.name} is thinking...`);
+                botTimer = setTimeout(() => executeBotTurn(activePlayer), appSettings.botSpeed); 
+            } else { inputLocked = false; setStatus(`${activePlayer.name}'s turn!`); updateUI(false, false, -1); }
+        }
+
+        function acceptPass() { document.getElementById('pass-screen').style.display = 'none'; currentViewerId = currentPlayerIndex; updateUI(false, false, -1); processTurn(); }
+
+        // --- ACTIONS ---
+        function humanPlay(index) {
+            if(inputLocked || currentPlayerIndex !== currentViewerId) return;
+            const card = players[currentViewerId].hand[index];
+            if (!isValidPlay(card)) { playSound('error'); setStatus("Invalid card!"); return; }
+            
+            inputLocked = true; const startRect = document.getElementById(`hand-card-${index}`).getBoundingClientRect();
+            discardPile.push(card); players[currentViewerId].hand.splice(index, 1);
+            
+            updateUI(false, true, -1); const endRect = document.getElementById('discard-top').getBoundingClientRect();
+            animateCard(card, startRect, endRect, () => {
+                playSound('play'); document.getElementById('discard-top').style.visibility = 'visible'; document.getElementById('discard-top').classList.add('anim-slam');
+                if (players[currentViewerId].hand.length === 1) { playSound('solo'); setStatus(`${appSettings.gameName}!!`); setTimeout(()=>finishPlay(card), 1000); }
+                else finishPlay(card);
+            });
+        }
+
+        function finishPlay(card) {
+            if (card.colorIdx === 'wild') document.getElementById('color-picker').style.display = 'flex';
+            else { advanceTurn(applyCardEffect(card)); updateUI(false, false, -1); processTurn(); }
+        }
+
+        function setColor(idx) {
+            document.getElementById('color-picker').style.display = 'none';
+            discardPile[discardPile.length - 1].colorIdx = idx; activeColorIdx = idx;
+            setStatus(`Color shifted to ${appSettings.colorNames[idx]}!`);
+            advanceTurn(applyCardEffect(discardPile[discardPile.length - 1])); updateUI(false, false, -1); setTimeout(processTurn, 800);
+        }
+
+        function humanAction() {
+            if(inputLocked || currentPlayerIndex !== currentViewerId) return;
+            inputLocked = true; document.getElementById('draw-btn').disabled = true;
+
+            if(pendingDrawAmount > 0) {
+                for(let i=0; i<pendingDrawAmount; i++) { let c = drawFromDeck(); if(c) players[currentViewerId].hand.push(c); }
+                playSound('draw'); setStatus(`Took penalty!`); pendingDrawAmount = 0; activeRequiredStackValue = null;
+                advanceTurn(false); updateUI(false, false, -1); processTurn(); return;
+            }
+
+            if (mods.drawUntil) {
+                let foundCard = null; let drawn = 0;
+                while(!foundCard) {
+                    let c = drawFromDeck(); if(!c) break; drawn++;
+                    if (isValidPlay(c)) { foundCard = c; break; } else players[currentViewerId].hand.push(c);
+                }
+                if (foundCard) {
+                    discardPile.push(foundCard); updateUI(false, true, -1); 
+                    animateCard(foundCard, document.getElementById('draw-pile-visual').getBoundingClientRect(), document.getElementById('discard-top').getBoundingClientRect(), () => {
+                        playSound('play'); document.getElementById('discard-top').style.visibility = 'visible'; document.getElementById('discard-top').classList.add('anim-slam');
+                        if (players[currentViewerId].hand.length === 1) playSound('solo');
+                        if (foundCard.colorIdx === 'wild') document.getElementById('color-picker').style.display = 'flex';
+                        else { advanceTurn(applyCardEffect(foundCard)); updateUI(false, false, -1); processTurn(); }
+                    });
+                } else { advanceTurn(false); updateUI(false, false, -1); processTurn(); }
+            } else {
+                let c = drawFromDeck(); if(!c) { advanceTurn(false); updateUI(false, false, -1); processTurn(); return; }
+                players[currentViewerId].hand.push(c); updateUI(false, false, players[currentViewerId].hand.length - 1); 
+                animateCard(c, document.getElementById('draw-pile-visual').getBoundingClientRect(), document.getElementById(`hand-card-${players[currentViewerId].hand.length - 1}`).getBoundingClientRect(), () => {
+                    playSound('draw'); advanceTurn(false); updateUI(false, false, -1); processTurn();
+                });
+            }
+        }
+
+        // --- STRICT AI (ANTI-CHEAT) ---
+        function getBotPlayIndex(bot) {
+            if (pendingDrawAmount > 0) return bot.hand.findIndex(c => isValidPlay(c));
+            
+            let cIdx = bot.hand.findIndex(c => c.colorIdx === activeColorIdx);
+            if (cIdx !== -1) return cIdx;
+            
+            let top = discardPile[discardPile.length - 1];
+            let vIdx = bot.hand.findIndex(c => c.value === top.value && c.colorIdx !== 'wild');
+            if (vIdx !== -1) return vIdx;
+            
+            let sIdx = bot.hand.findIndex(c => c.value === 'wild');
+            if (sIdx !== -1) return sIdx;
+            
+            let pIdx = bot.hand.findIndex(c => c.colorIdx === 'wild' && c.value !== 'wild');
+            if (pIdx !== -1) return pIdx;
+
+            return -1;
+        }
+
+        function executeBotTurn(bot) {
+            let playedCard = null; let idx = getBotPlayIndex(bot);
+
+            if (idx !== -1) { playedCard = bot.hand[idx]; bot.hand.splice(idx, 1); } 
+            else if (pendingDrawAmount > 0) {
+                for(let i=0; i<pendingDrawAmount; i++) { let c = drawFromDeck(); if(c) bot.hand.push(c); }
+                playSound('draw'); pendingDrawAmount = 0; activeRequiredStackValue = null; setTimeout(() => { advanceTurn(false); updateUI(false, false, -1); processTurn(); }, 1000); return;
+            }
+
+            if (playedCard) {
+                discardPile.push(playedCard);
+                if (playedCard.colorIdx === 'wild') {
+                    let counts = {0:0, 1:0, 2:0, 3:0}; bot.hand.forEach(c => { if(c.colorIdx !== 'wild') counts[c.colorIdx]++; });
+                    let chosen = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                    if(counts[chosen] === 0) chosen = Math.floor(Math.random()*4);
+                    playedCard.colorIdx = parseInt(chosen); activeColorIdx = parseInt(chosen);
+                }
+                updateUI(false, true, -1); 
+                animateCard({colorIdx:'hidden', value:''}, document.getElementById(`opponent-${currentPlayerIndex}`).getBoundingClientRect(), document.getElementById('discard-top').getBoundingClientRect(), () => {
+                    playSound('play'); document.getElementById('discard-top').style.visibility = 'visible'; document.getElementById('discard-top').classList.add('anim-slam');
+                    
+                    if (bot.hand.length === 1) { playSound('solo'); setStatus(`${bot.name} yells ${appSettings.gameName}!`); }
+                    else setStatus(`${bot.name} played a card!`);
+                    
+                    setTimeout(() => { advanceTurn(applyCardEffect(playedCard)); updateUI(false, false, -1); processTurn(); }, 1000);
+                });
+            } else {
+                if (mods.drawUntil) {
+                    while(!playedCard) {
+                        let c = drawFromDeck(); if(!c) break;
+                        if (isValidPlay(c)) playedCard = c; else bot.hand.push(c);
+                    }
+                    if(playedCard) {
+                        discardPile.push(playedCard);
+                        if (playedCard.colorIdx === 'wild') { playedCard.colorIdx = Math.floor(Math.random()*4); activeColorIdx = playedCard.colorIdx; }
+                        updateUI(false, true, -1);
+                        animateCard({colorIdx:'hidden', value:''}, document.getElementById('draw-pile-visual').getBoundingClientRect(), document.getElementById('discard-top').getBoundingClientRect(), () => {
+                            playSound('play'); document.getElementById('discard-top').style.visibility = 'visible'; document.getElementById('discard-top').classList.add('anim-slam');
+                            if (bot.hand.length === 1) playSound('solo');
+                            setTimeout(() => { advanceTurn(applyCardEffect(playedCard)); updateUI(false, false, -1); processTurn(); }, 1000);
+                        }); return;
+                    }
+                } else { let c = drawFromDeck(); if(c) bot.hand.push(c); }
+                animateCard({colorIdx:'hidden', value:''}, document.getElementById('draw-pile-visual').getBoundingClientRect(), document.getElementById(`opponent-${currentPlayerIndex}`).getBoundingClientRect(), () => {
+                    playSound('draw'); advanceTurn(false); updateUI(false, false, -1); processTurn();
+                });
+            }
+        }
+    </script>
+</body>
+</html>
